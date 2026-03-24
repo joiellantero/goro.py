@@ -1,4 +1,4 @@
-# Guess Repo Owner
+# GORO - Guess Organization Repository Owner
 
 Identifies the likely owner of a GitHub repository by finding the top non-bot contributor and mapping their GitHub username to an internal employee identifier (shortname).
 
