@@ -7,6 +7,16 @@ from dotenv import load_dotenv
 import pandas as pd
 
 
+# Allowlist patterns for GitHub names to prevent path injection
+_GITHUB_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*$')
+
+
+def _validate_github_path_component(value, name):
+    if not _GITHUB_NAME_RE.match(value) or '..' in value:
+        print(f"Invalid value for {name}: '{value}'")
+        sys.exit(1)
+
+
 def get_repo_details(owner, repo, token):
     # GitHub API URL for the repository
     url = f"https://api.github.com/repos/{owner}/{repo}/contributors"
@@ -18,7 +28,7 @@ def get_repo_details(owner, repo, token):
     }
 
     # Making the GET request to the GitHub API
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout=10)
 
     # Checking if the request was successful
     if response.status_code == 200:
@@ -26,8 +36,10 @@ def get_repo_details(owner, repo, token):
         repo_details = response.json()
         parsed_details = list()
 
-        # Printing some details about the repository
-        for index, detail in enumerate(repo_details):
+        for detail in repo_details:
+            # Skip anonymous contributors (no login field)
+            if 'login' not in detail:
+                continue
             temp_dict = dict()
             temp_dict['User'] = detail['login']
             temp_dict['Contributions'] = detail['contributions']
@@ -98,11 +110,10 @@ def get_users_list(owner, users, token):
     # Headers to include in the request
     headers = {
         "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github.v3+json",
     }
 
     # Making the GET request to the GitHub API
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout=10)
 
     if response.status_code == 200:
         content = response.text
@@ -158,7 +169,14 @@ if __name__ == "__main__":
     users = os.getenv("USERS_REPO")
 
     if owner and repo and token and users:
+        _validate_github_path_component(owner, "OWNER")
+        _validate_github_path_component(repo, "REPOSITORY_NAME")
+
         users_df = get_users_list(owner, users, token)
+        if users_df is None:
+            print("Failed to load employee list. Cannot continue.")
+            sys.exit(1)
+
         shortname = get_max_contributor(owner, repo, token, users_df)
 
         if shortname is None:
