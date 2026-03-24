@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import sys
 import requests
 from dotenv import load_dotenv
@@ -64,8 +65,13 @@ def get_max_contributor(owner, repo, token, df):
 
 # Function to check if a github_username is a bot
 def check_if_bot(github_username):
-    bot_keywords = ['-bot', 'bot', '[bot]']
-    return any(keyword in github_username.lower() for keyword in bot_keywords)
+    name = github_username.lower()
+    # GitHub's official bot accounts end with [bot]
+    if name.endswith("[bot]"):
+        return True
+    # Common bot naming conventions: "bot" as a standalone word-like segment
+    # e.g. "dependabot", "renovate-bot", "my-bot" — but not "jacobot" or "robotech"
+    return bool(re.search(r"(^|[-_])bot([-_]|$)", name))
 
 
 # Function to extract the markdown table from the file
